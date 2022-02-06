@@ -17,9 +17,12 @@ import torch
 def _train_step(model, X, Y, h_cache, eval_only, loss_div=1):
     """Single training step."""
 
-    out, h_cache = model(X, h_cache)
-    out = out.view(-1, out.size(-1))
-    loss = torch.nn.functional.nll_loss(out, Y.view(-1))
+    out, h_cache, dummy_loss = model(X, h_cache, target=Y)
+    if model.module.adapt_io:
+        loss = out.mean() + dummy_loss.sum()
+    else:
+        out = out.view(-1, out.size(-1))
+        loss = torch.nn.functional.nll_loss(out, Y.view(-1))
     loss_value = loss.item() / loss_div
 
     if not eval_only:
@@ -64,6 +67,9 @@ def _train_batch(model, optimizer, scheduler, X, Y, h_cache,
     if not eval_only:
         if scheduler is not None:
             scheduler.step()
+        if optimizer.grad_clip > 0:
+            torch.nn.utils.clip_grad_norm_(
+                model.parameters(), optimizer.grad_clip)
         optimizer.step()
 
         # make sure span parameters are in a correct range

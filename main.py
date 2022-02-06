@@ -27,7 +27,9 @@ from utils import (
 
 def launch(env_params,
            model_params,
+           adapt_io_params,
            adapt_span_params,
+           pers_mem_params,
            optim_params,
            data_params,
            trainer_params):
@@ -41,19 +43,24 @@ def launch(env_params,
         print('optim_params:\t', optim_params)
         print('data_params:\t', data_params)
         print('trainer_params:\t', trainer_params)
+        print('adapt_io_params:\t', adapt_io_params)
         print('adapt_span_params:\t', adapt_span_params)
+        print('pers_mem_params:\t', pers_mem_params)
 
     # DATA
     train_data, val_data, test_data = get_train_val_test_data(
         data_params=data_params,
         env_params=env_params,
         batch_size=trainer_params['batch_size'],
-        device=device)
+        device=device,
+        sort_dict=adapt_io_params['adapt_io_enabled'])
 
     # MODEL
     model = TransformerSeq(
         vocab_size=data_params['vocab_size'], **model_params,
-        adapt_span_params=adapt_span_params)
+        adapt_io_params=adapt_io_params,
+        adapt_span_params=adapt_span_params,
+        pers_mem_params=pers_mem_params)
     if distributed:
         local_rank = env_params['local_rank']
         model = model.to(device)
@@ -68,7 +75,7 @@ def launch(env_params,
         model=model, optim_params=optim_params)
 
     # create logger
-    logger = Logger()
+    logger = Logger(data_params['data_unit'])
 
     # resume training from last checkpoint if exists
     iter_init = load_checkpoint(
@@ -95,8 +102,12 @@ def launch(env_params,
                 else:
                     return
 
-            print('val: {:.3f}bpc'.format(loss_val / math.log(2)))
-            print('test: {:.3f}bpc'.format(loss_test / math.log(2)))
+            if data_params['data_unit'] == 'bpc':
+                print('val: {:.3f}bpc'.format(loss_val / math.log(2)))
+                print('test: {:.3f}bpc'.format(loss_test / math.log(2)))
+            else:
+                print('val: {:.2f}ppl'.format(math.exp(loss_val)))
+                print('test: {:.2f}ppl'.format(math.exp(loss_test)))
         return
 
     # position of current batch

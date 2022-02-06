@@ -84,16 +84,25 @@ def _get_optimizer(model,
                    momentum: float,
                    grad_clip: float):
     if optim == 'sgd':
-        return torch.optim.SGD(_get_grad_requiring_params(model),
+        optimizer = torch.optim.SGD(_get_grad_requiring_params(model),
                                lr=lr,
                                momentum=momentum)
+        optimizer.grad_clip = grad_clip
+        return optimizer
     elif optim == 'adagrad':
-        return AdagradWithGradClip(_get_grad_requiring_params(model),
+        optimizer = AdagradWithGradClip(_get_grad_requiring_params(model),
                                    lr=lr,
                                    grad_clip=grad_clip)
+        optimizer.grad_clip = 0 # done internally
+        return optimizer
+    elif optim == 'adam':
+        optimizer = torch.optim.Adam(_get_grad_requiring_params(model),
+                                   lr=lr)
+        optimizer.grad_clip = grad_clip
+        return optimizer
     else:
         raise RuntimeError("wrong type of optimizer "
-                           "- must be 'sgd' or 'adagrad")
+                           "- must be 'sgd', 'adagrad' or 'adam'")
 
 
 def _get_scheduler(optimizer, lr_warmup):
@@ -168,7 +177,8 @@ def save_checkpoint(checkpoint_path, iter_no, model,
 ##############################################################################
 
 class Logger:
-    def __init__(self):
+    def __init__(self, data_unit):
+        self.data_unit = data_unit
         self._state_dict = dict()
 
     def load_state_dict(self, state_dict):
@@ -185,14 +195,21 @@ class Logger:
     def log_iter(self, iter_no, nb_batches_per_iter, loss_train, loss_val,
                  elapsed, model):
         step = (iter_no + 1) * nb_batches_per_iter
-        train_bpc = float(loss_train / math.log(2))
-        val_bpc = float(loss_val / math.log(2))
-        msg = 'steps: {}'.format(step)
-        msg += '\ttrain: {:.3f}bpc\tval: {:.3f}bpc'.format(train_bpc, val_bpc)
-        msg += '\tms/batch: {:.1f}'.format(elapsed)
         self._log(title='step', value=step)
-        self._log(title='train_bpc', value=train_bpc)
-        self._log(title='val_bpc', value=val_bpc)
+        msg = 'steps: {}'.format(step)
+        if self.data_unit == 'bpc':
+            train_bpc = float(loss_train / math.log(2))
+            val_bpc = float(loss_val / math.log(2))
+            msg += '\ttrain: {:.3f}bpc\tval: {:.3f}bpc'.format(train_bpc, val_bpc)
+            self._log(title='train_bpc', value=train_bpc)
+            self._log(title='val_bpc', value=val_bpc)
+        else:
+            train_ppl = math.exp(loss_train)
+            val_ppl = math.exp(loss_val)
+            msg += '\ttrain: {:.2f}ppl\tval: {:.2f}ppl'.format(train_ppl, val_ppl)
+            self._log(title='train_ppl', value=train_ppl)
+            self._log(title='val_ppl', value=val_ppl)
+        msg += '\tms/batch: {:.1f}'.format(elapsed)
 
         if model.module.layers[0].attn.attn.adapt_span_enabled:
             avg_spans = []

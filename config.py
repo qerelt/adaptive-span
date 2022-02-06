@@ -35,6 +35,13 @@ PARAMS_CONFIG = {
                     '(must contain train.txt, valid.txt and test.txt)',
             'dest': 'data_path'
         },
+        '--data-unit': {
+            'type': str,
+            'default': 'bpc',
+            'choices': ['bpc', 'ppl'],
+            'help': 'loss unit to log',
+            'dest': 'data_unit'
+        },
     },
     # model-specific
     'model_params': {
@@ -80,6 +87,12 @@ PARAMS_CONFIG = {
             'default': 0.2,
             'help': 'dropout rate of ReLU and attention',
             'dest': 'dropout'
+        },
+        '--emb-dropout': {
+            'type': float,
+            'default': 0.,
+            'help': 'the dropout rate applied on I/O embeddings',
+            'dest': 'emb_dropout'
         },
     },
     # optimization-specific
@@ -157,6 +170,33 @@ PARAMS_CONFIG = {
             'dest': 'full_eval_mode'
         },
     },
+    # adaptive I/O specific params
+    'adapt_io_params': {
+        '--adapt-io': {
+            'action': 'store_true',
+            'default': False,
+            'help': 'enable adaptive input and output representations',
+            'dest': 'adapt_io_enabled'
+        },
+        '--adapt-io-tied': {
+            'action': 'store_true',
+            'default': False,
+            'help': 'tie the input parameters with the output parameters',
+            'dest': 'adapt_io_tied'
+        },
+        '--adapt-io-divval': {
+            'type': int,
+            'default': 4,
+            'help': 'dimension division value',
+            'dest': 'adapt_io_divval'
+        },
+        '--adapt-io-cutoffs': {
+            'type': int,
+            'default': [20000, 40000, 200000],
+            'help': 'cutoffs values',
+            'dest': 'adapt_io_cutoffs'
+        },
+    },
     # adaptive attention span specific params
     'adapt_span_params': {
         '--adapt-span': {
@@ -188,6 +228,15 @@ PARAMS_CONFIG = {
             'default': False,
             'help': 'adapt cache size as well to reduce memory usage',
             'dest': 'adapt_span_cache'
+        },
+    },
+    # persistent memory specific params
+    'pers_mem_params': {
+        '--pers-mem-size': {
+            'type': int,
+            'default': 0,
+            'help': 'the number of persistent memory vectors',
+            'dest': 'pers_mem_size'
         },
     },
 }
